@@ -1,5 +1,6 @@
 import websocket
 import json
+import threading
 
 try:
     import thread
@@ -21,7 +22,6 @@ class EditorConnection(object):
                 {'event': 'search', 'file': filepath, 'start': start, 'end': end, 'content': content, 'query': query}))
 
     def onFilesUpdated(self, callback):
-        print("ADDED CALLBACK")
         self.filesUpdatedCallbacks.append(callback)
 
     def _on_message(self, ws, message):
@@ -39,28 +39,42 @@ class EditorConnection(object):
         print(ws)
         print("### closed ###")
 
+    def _on_open(self, ws):
+        print(ws)
+        print("### opened ###")
+
     def connect(self):
+        print("TRYING TO CONNECT")
         websocket.enableTrace(True)
         self.ws = websocket.WebSocketApp("ws://localhost:30333/socket/editor/" + self.name, on_message=self._on_message,
                                          on_error=self._on_error, on_close=self._on_close)
+        self.ws.on_open = self._on_open
         self.ws.run_forever()
+
+    def _tryConnect(self):
+        while True:
+            if not hasattr(self, 'ws') or (hasattr(self, 'ws') and self.ws.sock is None):
+                self.connect()
+            if hasattr(self, 'ws') and self.ws.sock is not None and not self.ws.sock.connected:
+                self.connect()
+            time.sleep(10)
 
     def __init__(self, name):
         self.name = name
-        self.connect()
         self.filesUpdatedCallbacks = []
+        self._tryConnect()
 
-
-
-
-# connection = EditorConnection("pythonTest")
+#
+# def main():
+#     connection = EditorConnection("pythonTest")
 #
 #
-# def filesUpdates(value):
-#     print("GOT IT")
-#     print(value)
+# main()
 #
-#
-# connection.onFilesUpdated(filesUpdates)
-# connection._on_message(0,  "{ 'event': 'files-updated' }")
-#
+# if __name__ == '__main__':
+#     while True:
+#         try:
+#             pass
+#         except Exception as err:
+#             # do any logging etc of err
+#             pass
